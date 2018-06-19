@@ -31,6 +31,11 @@
    Samuel M. - v1.1 - 08.2016
    If you like this example, please add a star! Thank you!
    https://github.com/mertenats/open-home-automation
+   
+   
+   Modifying the original code to work with the 433mhz doorbell project from TheHookup (?) 
+   project needs to sense a pin being pulled high and send a single mqtt message notifying HASS of the flashing LED.
+   project uses D0 (GPIO16) on the MCU ESP8266 board for sensing. 
 */
 
 #include <ESP8266WiFi.h>
@@ -43,18 +48,18 @@ const PROGMEM char* WIFI_SSID = "[Redacted]";
 const PROGMEM char* WIFI_PASSWORD = "[Redacted]";
 
 // MQTT: ID, server IP, port, username and password
-const PROGMEM char* MQTT_CLIENT_ID = "office_motion";
+const PROGMEM char* MQTT_CLIENT_ID = "doorbell";
 const PROGMEM char* MQTT_SERVER_IP = "[Redacted]";
 const PROGMEM uint16_t MQTT_SERVER_PORT = 1883;
 const PROGMEM char* MQTT_USER = "[Redacted]";
 const PROGMEM char* MQTT_PASSWORD = "[Redacted]";
 
 // MQTT: topic
-const PROGMEM char* MQTT_MOTION_STATUS_TOPIC = "office/motion/status";
+const PROGMEM char* MQTT_STATUS_TOPIC = "doorbell";
 
 // default payload
-const PROGMEM char* MOTION_ON = "ON";
-const PROGMEM char* MOTION_OFF = "OFF";
+const PROGMEM char* LED_ON = "ON";
+const PROGMEM char* LED_OFF = "OFF";
 
 // PIR : D1/GPIO5
 const PROGMEM uint8_t PIR_PIN = 5;
@@ -67,9 +72,9 @@ PubSubClient client(wifiClient);
 // function called to publish the state of the pir sensor
 void publishPirSensorState() {
   if (m_pir_state) {
-    client.publish(MQTT_MOTION_STATUS_TOPIC, MOTION_OFF, true);
+    client.publish(MQTT_STATUS_TOPIC, LED_OFF, true);
   } else {
-    client.publish(MQTT_MOTION_STATUS_TOPIC, MOTION_ON, true);
+    client.publish(MQTT_STATUS_TOPIC, LED_ON, true);
   }
 }
 
@@ -127,19 +132,20 @@ void loop() {
   }
   client.loop();
 
-  // read the PIR sensor
+  // read the sense pin
   m_pir_value = digitalRead(PIR_PIN);
   if (m_pir_value == HIGH) {
     if (m_pir_state == LOW) {
       // a motion is detected
-      Serial.println("INFO: Motion detected");
+      Serial.println("INFO:LED on");
       publishPirSensorState();
       m_pir_state = HIGH;
+      delay(10000) // added a delay of 10 seconds to let flashing finish. may need to lengthen this after testing. 
     }
   } else {
     if (m_pir_state == HIGH) {
-      publishPirSensorState();
-      Serial.println("INFO: Motion ended");
+      //publishPirSensorState();  commented ot to remove off MQTT notifications
+      Serial.println("INFO:LED off"); //left in to see serial off notifications
       m_pir_state = LOW;
     }
   }
